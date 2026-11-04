@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>串珠成本管理</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial;
+            background: #fff5f8;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1, h2, h3 {
+            color: #d85b8b;
+        }
+
+        button {
+            background: #e889aa;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #d85b8b;
+        }
+
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .box {
+            background: white;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .page {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th {
+            background: #ffe1ec;
+            color: #d85b8b;
+        }
+
+        td, th {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .category button {
+            background: #f3a6bf;
+        }
+
+        /* 歷史作品分類標籤樣式 */
+        .history-tags {
+            margin: 15px 0;
+            padding: 10px;
+            background: #fff0f3;
+            border-radius: 12px;
+        }
+        .history-tags button.tag-active {
+            background: #d85b8b;
+            font-weight: bold;
+        }
+
+        /* 編輯彈窗樣式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 30px;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 20px;
+            text-align: left;
+        }
+
+        /* 拖曳中與可拖曳的視覺外觀 */
+        .draggable-item {
+            cursor: grab;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+        .drag-over {
+            background-color: #ffe1ec !important;
+            border: 2px dashed #e889aa !important;
+        }
+
+        /* 寄賣管理專用樣式 */
+        .consign-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        .consign-item-card {
+            background: #fff9fa;
+            border: 1px solid #fcdbe4;
+            border-radius: 10px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: left;
+        }
+
+        .consign-item-info {
+            flex-grow: 1;
+        }
+
+        .consign-item-name {
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 4px;
+        }
+
+        .consign-item-status {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .consign-item-status span {
+            margin-right: 12px;
+        }
+
+        .consign-action-btns {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .btn-small {
+            padding: 4px 10px;
+            font-size: 0.85em;
+            border-radius: 6px;
+            margin: 0;
+        }
+
+        .btn-success { background: #5cb85c; }
+        .btn-success:hover { background: #4cae4c; }
+        .btn-danger { background: #d9534f; }
+        .btn-danger:hover { background: #d43f3a; }
+        .btn-secondary { background: #777; }
+        .btn-secondary:hover { background: #555; }
+        .btn-info { background: #5bc0de; }
+        .btn-info:hover { background: #31b0d5; }
+        .btn-warning { background: #f0ad4e; }
+        .btn-warning:hover { background: #ec971f; }
+
+        .shop-summary {
+            background: #f7f7f7;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            color: #555;
+        }
+
+        .search-bar {
+            width: 60%;
+            max-width: 400px;
+            border: 2px solid #e889aa;
+            margin-bottom: 15px;
+        }
+    </style>
+    <style>
+  /* 這一行會直接強制網頁上所有類似的粉紅標籤都不准換行 */
+  td span, td div {
+    white-space: nowrap !important;
+  }
+</style>
+
+    <style>
+      /* 手機與平板響應式排版 */
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      @media (max-width: 700px) {
+        body { padding: 8px; margin: 0; font-size: 14px; }
+        h1 { font-size: 22px; margin: 14px 0; }
+        h2 { font-size: 19px; }
+        h3 { font-size: 17px; }
+        .box { width: 100%; max-width: 100%; margin: 10px auto; padding: 12px 10px; border-radius: 14px; overflow: hidden; }
+        button { padding: 9px 11px; margin: 3px; font-size: 14px; min-height: 38px; }
+        input, select { max-width: 100%; min-height: 38px; font-size: 16px; }
+        input[type="number"] { width: 88px !important; }
+        .search-bar { width: 100%; max-width: 100%; }
+        table { display: block; width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+        td, th { padding: 8px 7px; font-size: 13px; }
+        .history-tags { overflow-x: auto; white-space: nowrap; }
+        .modal { overflow-y: auto; padding: 12px 8px; }
+        .modal-content { width: 100%; max-width: 100%; margin: 8vh auto 20px; padding: 16px 12px; max-height: 84vh; overflow-y: auto; border-radius: 14px; }
+        .consign-item-card { flex-wrap: wrap; gap: 8px; }
+        .consign-action-btns { flex-wrap: wrap; }
+        .shop-summary { overflow-wrap: anywhere; }
+      }
+      @media (max-width: 380px) {
+        body { padding: 5px; }
+        .box { padding: 10px 7px; }
+        button { padding: 8px 9px; font-size: 13px; }
+        td, th { padding: 7px 6px; }
+      }
+    </style>
+
+</head>
+
+<body class="cloud-locked">
+    <section id="cloudAuthPanel">
+        <h2>☁️ 串珠成本管理｜雲端登入</h2>
+        <p class="cloud-small">使用同一組電子郵件與密碼，就能在電腦和手機查看同一份資料。</p>
+        <div><input id="cloudEmail" type="email" autocomplete="email" placeholder="電子郵件"></div>
+        <div><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="密碼（至少 6 個字元）"></div>
+        <div>
+            <button type="button" id="cloudLoginBtn">登入</button>
+            <button type="button" id="cloudSignupBtn">建立帳號</button>
+        </div>
+        <p id="cloudStatus" role="status">請先登入或建立帳號。</p>
+        <p class="cloud-small">第一次使用時，系統會確認要以這台裝置的舊資料或雲端資料為主，不會直接默默覆蓋。</p>
+    </section>
+    <div id="cloudAccountBar">
+        <span id="cloudSignedInAs"></span>
+        <button type="button" id="cloudSyncBtn">立即同步</button>
+        <button type="button" id="cloudExportBtn">備份資料</button>
+        <button type="button" id="cloudImportBtn">匯入備份</button>
+        <input id="cloudImportFile" type="file" accept="application/json,.json" style="display:none">
+        <button type="button" id="cloudLogoutBtn">登出</button>
+        <span id="cloudSyncStatus" class="cloud-small">雲端同步尚未啟用</span>
+    </div>
+
+    <h1>💍 串珠成本管理 </h1>
+
+    <!-- 主分頁 -->
+    <button onclick="changePage('materialPage')">📦 材料庫</button>
+    <button onclick="changePage('productPage')">💰 商品成本</button>
+    <button onclick="changePage('historyPage')">📚 歷史作品</button>
+    <button onclick="changePage('stallPage')">🏪 擺攤管理</button>
+    <button onclick="changePage('consignmentPage')">🤝 寄賣管理</button>
+    <button onclick="changePage('reportPage')">📊 營運分析</button>
+
+    <!-- ===================== 材料庫 ===================== -->
+    <div id="materialPage" class="box page active">
+        <h2>📦 材料庫</h2>
+        <div class="category">
+            <button onclick="changeMaterial('bead')">珠子</button>
+            <button onclick="changeMaterial('line')">🧵 線材</button>
+            <button onclick="changeMaterial('package')">🎁 包裝</button>
+        </div>
+        <h3 id="materialTitle">🌈 珠子</h3>
+        <input id="materialSearchBox" class="search-bar" placeholder="🔍 搜尋材料名稱..." oninput="showMaterials()">
+        <br>
+        <input id="materialName" placeholder="材料名稱">
+        <input id="buyPrice" type="number" placeholder="購買價格">
+        <input id="buyAmount" type="number" placeholder="購買數量">
+        <button onclick="addMaterialData()">新增材料</button>
+        <table>
+            <tr>
+                <th>名稱</th>
+                <th>目前單位成本</th>
+                <th>庫存</th>
+                <th>操作</th>
+            </tr>
+            <tbody id="materialList"></tbody>
+        </table>
+    </div>
+
+    <!-- ===================== 商品成本 ===================== -->
+    <div id="productPage" class="box page">
+        <h2>💰 商品成本</h2>
+        <input id="productName" placeholder="作品名稱">
+        <br>
+        <select id="productCategory" onchange="changeProductCategory()">
+            <option value="bead">🌈 珠子</option>
+            <option value="line">🧵 線材</option>
+            <option value="package">🎁 包裝</option>
+        </select>
+        <br>
+        <input id="materialSearch" placeholder="搜尋材料" oninput="changeProductCategory()">
+        <br>
+        <select id="materialSelect"></select>
+        <input id="useAmount" type="number" placeholder="使用數量">
+        <button onclick="addProductMaterial()">加入材料</button>
+
+        <table>
+            <tr>
+                <th>材料</th>
+                <th>數量</th>
+                <th>目前成本</th>
+                <th>操作</th>
+            </tr>
+            <tbody id="productMaterialList"></tbody>
+        </table>
+
+        <input id="extraCost" type="number" placeholder="其他成本">
+        <br>
+        <input id="sellPrice" type="number" placeholder="商品售價">
+        <br>
+        <button onclick="calculateProduct()">計算成本</button>
+        <h3 id="costResult"></h3>
+        <button onclick="saveProduct()">保存作品</button>
+    </div>
+
+    <!-- ===================== 歷史作品 ===================== -->
+    <div id="historyPage" class="box page">
+        <h2>📚 歷史作品 (可直接上下「拖曳整行」調整順序)</h2>
+        
+        <!-- 分類標籤管理與篩選區 -->
+        <div class="history-tags">
+            <span style="font-weight: bold; color: #d85b8b;">📁 作品分類篩選：</span>
+            <div id="historyTagButtons" style="display: inline-block;"></div>
+            <br style="margin-bottom: 5px;">
+            <input id="newHistoryTag" placeholder="新分類名稱(如:手鍊)" style="padding: 5px; font-size: 0.9em; width: 150px;">
+            <button onclick="addHistoryTag()" class="btn-small" style="padding: 5px 10px;">➕ 新增分類</button>
+        </div>
+
+        <input id="historySearchBox" class="search-bar" placeholder="🔍 搜尋歷史作品名稱..." oninput="showHistory()">
+        <br>
+        <button onclick="exportExcel()">📤 匯出 Excel</button>
+        <table>
+            <tr>
+                <th style="width: 8%;">拖曳</th>
+                <th>分類</th>
+                <th>作品</th>
+                <th>使用材料</th>
+                <th>即時總成本</th>
+                <th>售價</th>
+                <th>即時利潤 (毛利率)</th>
+                <th>庫存</th>
+                <th>操作</th>
+            </tr>
+            <tbody id="historyList"></tbody>
+        </table>
+    </div>
+
+    <!-- 歷史作品編輯彈窗 -->
+    <div id="editProductModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">✏️ 編輯作品資料</h3>
+            <input type="hidden" id="editProductIndex">
+            <label>作品名稱：</label><br>
+            <input id="editProductName" style="width:90%;" placeholder="作品名稱"><br><br>
+            <label>所屬分類：</label><br>
+            <select id="editProductTag" style="width:93%;"></select><br><br>
+            <label>商品售價：</label><br>
+            <input id="editProductSell" type="number" style="width:90%;" placeholder="商品售價"><br><br>
+            <label>其他成本 (不含材料)：</label><br>
+            <input id="editProductExtra" type="number" style="width:90%;" placeholder="其他成本"><br><br>
+            <button onclick="saveProductEdit()">儲存修改</button>
+            <button onclick="closeEditModal()" style="background:#ccc; color:#333;">取消</button>
+        </div>
+    </div>
+
+    <!-- 歷史作品材料檢視彈窗（新增功能，不修改原有資料結構） -->
+    <div id="historyMaterialsModal" class="modal">
+        <div class="modal-content" style="max-width:600px;">
+            <h3 id="historyMaterialsTitle" style="margin-top:0;">🧵 作品使用材料</h3>
+            <div style="max-height:350px; overflow-y:auto;">
+                <table style="margin-top:0;">
+                    <thead><tr><th>材料名稱</th><th>使用數量</th><th>操作</th></tr></thead>
+                    <tbody id="historyMaterialsList"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="addHistoryMaterialRow()" class="btn-small">＋新增材料</button>
+            </div>
+            <br>
+            <div style="text-align:right;">
+                <button onclick="saveHistoryMaterials()" style="background:#e889aa;">💾 儲存材料修改</button>
+                <button onclick="closeHistoryMaterialsModal()" style="background:#ccc;color:#333;">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== 擺攤管理 ===================== -->
+    <div id="stallPage" class="box page">
+        <h2>🏪 擺攤管理</h2>
+        <input id="stallName" placeholder="活動名稱">
+        <input id="stallDate" type="date">
+        <input id="stallLocation" placeholder="地點">
+        <h3>固定成本</h3>
+        <input id="stallBooth" type="number" placeholder="攤位費">
+        <input id="stallTransport" type="number" placeholder="交通費">
+        <input id="stallParking" type="number" placeholder="停車費">
+        <input id="stallFood" type="number" placeholder="餐費">
+        <input id="stallOther" type="number" placeholder="其他">
+        <br>
+        <button onclick="createStall()">建立活動</button>
+        <br><br>
+        <select id="selectStall"></select>
+        <select id="stallProduct"></select>
+        <input id="stallSellAmount" type="number" placeholder="銷售數量">
+        <button onclick="addStallSale()">加入銷售</button>
+        <table>
+            <tr>
+                <th>活動</th>
+                <th>成本</th>
+                <th>收入</th>
+                <th>利潤</th>
+                <th>操作</th>
+            </tr>
+            <tbody id="stallList"></tbody>
+        </table>
+    </div>
+
+    <!-- ===================== 寄賣管理 ===================== -->
+    <div id="consignmentPage" class="box page">
+        <h2>🤝 寄賣管理</h2>
+        <input id="shopName" placeholder="店家名稱">
+        <input id="shopCommission" type="number" placeholder="抽成比例%">
+        <input id="shopRent" type="number" placeholder="租金">
+        <button onclick="createConsignment()">新增店家</button>
+        <br><br>
+        
+        <div style="background: #fff0f3; padding: 10px; border-radius: 12px; margin-bottom: 15px;">
+            <span style="font-weight: bold; color: #d85b8b;">🔍 快速篩選商品：</span>
+            <input id="consignSearchBox" class="search-bar" style="margin-bottom:0; width: 50%;" placeholder="輸入寄賣中的作品名稱..." oninput="showConsignments()">
+        </div>
+
+        <select id="selectConsignShop"></select>
+        <select id="consignProduct"></select>
+        <input id="consignAmount" type="number" placeholder="寄出數量">
+        <button onclick="addConsignProduct()">加入商品</button>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 25%;">店家名稱</th>
+                    <th style="width: 25%;">抽成與租金</th>
+                    <th style="width: 50%;">上架商品與狀態 (可在卡片上直接「拖曳」調整順序)</th>
+                </tr>
+            </thead>
+            <tbody id="consignmentList"></tbody>
+        </table>
+    </div>
+
+    <!-- 寄賣銷貨明細與匯出彈窗 -->
+    <div id="consignDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 id="modalShopTitle" style="margin-top:0; color:#d85b8b;">📋 店家銷售明細</h3>
+            <input type="hidden" id="modalShopIndex">
+            
+            <div style="margin-bottom: 15px;">
+                <button onclick="exportSingleShopExcel()" class="btn-success">📥 匯出此店銷售明細 (Excel)</button>
+            </div>
+
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table style="margin-top: 0;">
+                    <thead>
+                        <tr>
+                            <th>品項名稱</th>
+                            <th>售價</th>
+                            <th>已售出數量</th>
+                            <th>小計(未抽成)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalShopDetailList"></tbody>
+                </table>
+            </div>
+            <br>
+            <div style="text-align: right;">
+                <button onclick="closeConsignDetailModal()" style="background:#ccc; color:#333;">關閉視窗</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ===================== 營運報表 ===================== -->
+    <div id="reportPage" class="box page">
+        <h2>📊 營運分析</h2>
+        <h3>💰 總收入：<span id="totalIncome">0</span> 元</h3>
+        <h3>📦 總成本：<span id="totalCost">0</span> 元</h3>
+        <h3>📈 淨利：<span id="totalProfit">0</span> 元</h3>
+        <hr>
+        <h3>🏆 最賺擺攤：<span id="bestStall">尚無</span></h3>
+        <h3>🤝 最佳寄賣：<span id="bestShop">尚無</span></h3>
+        <br>
+        <button onclick="clearReportData()">🗑 清除營運分析</button>
+    </div>
+
+    <script>
+        // ===================== 資料初始化 =====================
+        let materials = JSON.parse(localStorage.getItem("materials")) || [];
+        let products = JSON.parse(localStorage.getItem("products")) || [];
+        let stalls = JSON.parse(localStorage.getItem("stalls")) || [];
+        let consignments = JSON.parse(localStorage.getItem("consignments")) || [];
+        // 新增歷史作品分類儲存
+        let historyTags = JSON.parse(localStorage.getItem("historyTags")) || ["未分類"];
+
+        let currentCategory = "bead";
+        let currentHistoryTag = "全部"; // 當前篩選的作品分類
+        let productMaterials = [];
+        let calculatedInfo = { totalCost: 0, profit: 0, rate: 0 };
+
+        // 全域拖曳追蹤變數
+        let dragSrcId = null; // 改用 ID 追蹤歷史作品，避免篩選後索引錯亂
+        let dragSrcShopIndex = null;
+        let dragSrcItemIndex = null;
+
+        function getLatestMaterialCost(name) {
+            let m = materials.find(x => x.name === name);
+            return m ? m.cost : 0;
+        }
+
+        function getLiveProductCalculations(p) {
+            let matCost = 0;
+            if (p.usedMaterials && Array.isArray(p.usedMaterials)) {
+                p.usedMaterials.forEach(m => {
+                    matCost += getLatestMaterialCost(m.name) * m.amount;
+                });
+            }
+            let totalCost = matCost + (Number(p.extraCost) || 0);
+            let profit = Number(p.sell) - totalCost;
+            let rate = p.sell > 0 ? (profit / p.sell * 100).toFixed(1) : 0;
+            return { totalCost, profit, rate };
+        }
+
+        // ===================== 分頁功能 =====================
+        function changePage(page) {
+            document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+            document.getElementById(page).classList.add("active");
+            if(page === 'historyPage') { updateHistoryTagsUI(); showHistory(); }
+            if(page === 'reportPage') updateReport();
+            if(page === 'consignmentPage') showConsignments();
+        }
+
+        // ===================== 材料庫功能 =====================
+        function changeMaterial(type) {
+            currentCategory = type;
+            document.getElementById("materialTitle").innerHTML = 
+                type == "bead" ? "🌈 珠子" : type == "line" ? "🧵 線材" : "🎁 包裝";
+            showMaterials();
+        }
+
+        function addMaterialData() {
+            let name = document.getElementById("materialName").value.trim();
+            let price = Number(document.getElementById("buyPrice").value);
+            let amount = Number(document.getElementById("buyAmount").value);
+
+            if (name == "" || price <= 0 || amount <= 0) {
+                alert("請輸入完整正確的資料");
+                return;
+            }
+
+            let exist = materials.find(m => m.name == name && m.category == currentCategory);
+            if (exist) {
+                exist.totalPrice += price;
+                exist.totalAmount += amount;
+                exist.stock += amount;
+                exist.cost = exist.totalPrice / exist.totalAmount;
+            } else {
+                materials.push({
+                    name: name,
+                    category: currentCategory,
+                    totalPrice: price,
+                    totalAmount: amount,
+                    cost: price / amount,
+                    stock: amount
+                });
+            }
+            saveMaterials();
+            showMaterials();
+            changeProductCategory(); 
+        }
+
+        function saveMaterials() {
+            localStorage.setItem("materials", JSON.stringify(materials));
+        }
+
+        function showMaterials() {
+            let list = document.getElementById("materialList");
+            list.innerHTML = "";
+            let keyword = document.getElementById("materialSearchBox").value.trim();
+
+            materials.forEach((m, index) => {
+                if (m.category == currentCategory && m.name.includes(keyword)) {
+                    list.innerHTML += `
+                        <tr>
+                            <td>${m.name}</td>
+                            <td>$${m.cost.toFixed(2)}</td>
+                            <td>${m.stock}</td>
+                            <td>
+                                <button onclick="addStock(${index})">補貨</button>
+                                <button onclick="editStock(${index})">修改庫存</button>
+                                <button onclick="editPrice(${index})">修改價格</button>
+                                <button onclick="deleteMaterial(${index})">刪除</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+        }
+
+        function addStock(index) {
+            let amount = Number(prompt("增加數量"));
+            let price = Number(prompt("購買價格"));
+            if (amount <= 0 || price <= 0) return;
+
+            let m = materials[index];
+            m.stock += amount;
+            m.totalAmount += amount;
+            m.totalPrice += price;
+            m.cost = m.totalPrice / m.totalAmount;
+
+            saveMaterials();
+            showMaterials();
+        }
+
+        function editStock(index) {
+            let value = Number(prompt("輸入新庫存", materials[index].stock));
+            if (value >= 0) {
+                materials[index].stock = value;
+                saveMaterials();
+                showMaterials();
+            }
+        }
+
+        function editPrice(index) {
+            let value = Number(prompt("輸入目前累計總成本金額", materials[index].totalPrice));
+            if (value > 0) {
+                materials[index].totalPrice = value;
+                materials[index].cost = value / materials[index].totalAmount;
+                saveMaterials();
+                showMaterials();
+            }
+        }
+
+        function deleteMaterial(index) {
+            if(confirm("確定刪除此材料？")) {
+                materials.splice(index, 1);
+                saveMaterials();
+                showMaterials();
+            }
+        }
+
+        function changeProductCategory() {
+            let category = document.getElementById("productCategory").value;
+            let keyword = document.getElementById("materialSearch").value;
+            let select = document.getElementById("materialSelect");
+            if(!select) return;
+            select.innerHTML = "";
+
+            materials.forEach((m, index) => {
+                if (m.category == category && m.name.includes(keyword)) {
+                    select.innerHTML += `<option value="${index}">${m.name} (單價:${m.cost.toFixed(2)})</option>`;
+                }
+            });
+        }
+
+        function addProductMaterial() {
+            let index = document.getElementById("materialSelect").value;
+            let amount = Number(document.getElementById("useAmount").value);
+            let m = materials[index];
+
+            if (!m || amount <= 0) return;
+            if (amount > m.stock) {
+                alert("材料庫存不足！");
+                return;
+            }
+
+            m.stock -= amount;
+            saveMaterials();
+
+            let exist = productMaterials.find(x => x.name === m.name);
+            if(exist) {
+                exist.amount += amount;
+            } else {
+                productMaterials.push({ name: m.name, amount: amount });
+            }
+
+            showMaterials();
+            showProductMaterials();
+        }
+
+        function deleteProductMaterial(index) {
+            let pm = productMaterials[index];
+            let m = materials.find(x => x.name == pm.name);
+            if (m) {
+                m.stock += pm.amount;
+                saveMaterials();
+                showMaterials();
+            }
+            productMaterials.splice(index, 1);
+            showProductMaterials();
+        }
+
+        function showProductMaterials() {
+            let list = document.getElementById("productMaterialList");
+            list.innerHTML = "";
+
+            productMaterials.forEach((m, index) => {
+                let liveCost = getLatestMaterialCost(m.name) * m.amount;
+                list.innerHTML += `
+                                            <td>${m.name}</td>
+                        <td>${m.amount}</td>
+                        <td>$${liveCost.toFixed(2)}</td>
+                        <td><button onclick="deleteProductMaterial(${index})">刪除</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function calculateProduct() {
+            let materialCost = 0;
+            productMaterials.forEach(m => {
+                materialCost += getLatestMaterialCost(m.name) * m.amount;
+            });
+
+            let other = Number(document.getElementById("extraCost").value) || 0;
+            let sell = Number(document.getElementById("sellPrice").value) || 0;
+
+            let totalCost = materialCost + other;
+            let profit = sell - totalCost;
+            let rate = sell > 0 ? (profit / sell * 100).toFixed(1) : 0;
+
+            document.getElementById("costResult").innerHTML = `
+                即時總成本：${totalCost.toFixed(2)} 元<br>
+                售價：${sell} 元<br>
+                預估利潤：${profit.toFixed(2)} 元<br>
+                利潤率 (毛利率)：${rate} %
+            `;
+            calculatedInfo = { totalCost, profit, rate };
+        }
+
+        function saveProduct() {
+            let name = document.getElementById("productName").value.trim();
+            let sell = Number(document.getElementById("sellPrice").value) || 0;
+            let extra = Number(document.getElementById("extraCost").value) || 0;
+
+            if (name == "") { alert("請輸入作品名稱"); return; }
+            calculateProduct();
+
+            products.push({
+                id: Date.now(),
+                date: new Date().toLocaleDateString(),
+                name: name,
+                sell: sell,
+                extraCost: extra,
+                usedMaterials: [...productMaterials],
+                stock: 1,
+                tag: "未分類" // 預設歸類為未分類
+            });
+            localStorage.setItem("products", JSON.stringify(products));
+            
+            productMaterials = [];
+            document.getElementById("productName").value = "";
+            document.getElementById("sellPrice").value = "";
+            document.getElementById("extraCost").value = "";
+            document.getElementById("costResult").innerHTML = "";
+            showProductMaterials();
+            showHistory();
+            loadStallProducts();
+            loadConsignProducts();
+            alert("作品保存成功！");
+        }
+
+        // ===================== 歷史作品分類管理功能 =====================
+        function addHistoryTag() {
+            let input = document.getElementById("newHistoryTag");
+            let tagName = input.value.trim();
+            if (tagName === "") { alert("請輸入分類名稱"); return; }
+            if (historyTags.includes(tagName)) { alert("此分類已存在"); return; }
+            
+            historyTags.push(tagName);
+            localStorage.setItem("historyTags", JSON.stringify(historyTags));
+            input.value = "";
+            updateHistoryTagsUI();
+        }
+
+        function updateHistoryTagsUI() {
+            let container = document.getElementById("historyTagButtons");
+            if (!container) return;
+            
+            let html = `<button onclick="filterHistoryTag('全部')" class="${currentHistoryTag === '全部' ? 'tag-active' : ''}">🌟 全部作品</button>`;
+            historyTags.forEach(tag => {
+                html += `<button onclick="filterHistoryTag('${tag}')" class="${currentHistoryTag === tag ? 'tag-active' : ''}">📁 ${tag}</button>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function filterHistoryTag(tag) {
+            currentHistoryTag = tag;
+            updateHistoryTagsUI();
+            showHistory();
+        }
+
+        // ===================== 歷史作品顯示與拖曳排序 =====================
+        function showHistory() {
+            let list = document.getElementById("historyList");
+            if(!list) return;
+            list.innerHTML = "";
+            
+            let keyword = document.getElementById("historySearchBox") ? document.getElementById("historySearchBox").value.trim() : "";
+
+            products.forEach((p, index) => {
+                // 確保作品有 tag 屬性
+                if (!p.tag) p.tag = "未分類";
+
+                // 分類篩選
+                if (currentHistoryTag !== "全部" && p.tag !== currentHistoryTag) {
+                    return;
+                }
+                // 關鍵字篩選
+                if (keyword !== "" && !p.name.includes(keyword)) {
+                    return;
+                }
+
+                let live = getLiveProductCalculations(p);
+
+                // 判斷是否為搜尋狀態，若為搜尋狀態則關閉拖曳功能避免索引混亂
+                let dragAttributes = "";
+                let dragIcon = "☰";
+                if (keyword === "") {
+                    dragAttributes = `draggable="true" ondragstart="handleHistoryDragStart(event, ${p.id})" ondragover="handleHistoryDragOver(event)" ondragleave="handleHistoryDragLeave(event)" ondrop="handleHistoryDrop(event, ${p.id})"`;
+                } else {
+                    dragIcon = "❌";
+                }
+
+                list.innerHTML += `
+                    <tr class="draggable-item" ${dragAttributes}>
+                        <td style="font-size: 1.2em; color: #e889aa;">${dragIcon}</td>
+                        
+                        <td><span style="background:#fff0f3; padding:4px 8px; border-radius:10px; font-size:0.9em; color:#d85b8b;">${p.tag}</span></td>
+                        <td><b>${p.name}</b></td>
+                        <td><button onclick="viewHistoryMaterials(${p.id})" class="btn-small btn-info">🧵 查看材料</button></td>
+                        <td>$${live.totalCost.toFixed(2)}</td>
+                        <td>$${p.sell}</td>
+                        <td style="color:${live.profit >= 0 ? 'green':'red'}">
+                            <b>$${live.profit.toFixed(2)}</b><br>
+                            <small>(${live.rate}%)</small>
+                        </td>
+                        <td>
+                            ${p.stock || 0} 個<br>
+                            <button onclick="addProductStock(${index})">＋補庫存</button>
+                        </td>
+                        <td>
+                            <button onclick="openEditModal(${index})" style="background:#4a90e2;">✏️ 編輯</button>
+                            <button onclick="deleteProduct(${index})" style="background:#d9534f;">❌ 刪除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 歷史作品材料檢視與編輯
+        let currentHistoryMaterialProductId = null;
+
+        function historyMaterialOptions(selectedName = "") {
+            let names = [...new Set(materials.map(m => m.name).filter(Boolean))];
+            if (selectedName && !names.includes(selectedName)) names.unshift(selectedName);
+            return `<option value="">請選擇材料</option>` + names.map(name =>
+                `<option value="${String(name).replace(/&/g,"&amp;").replace(/\"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}" ${name === selectedName ? "selected" : ""}>${name}</option>`
+            ).join("");
+        }
+
+        function renderHistoryMaterialRows(used) {
+            let list = document.getElementById("historyMaterialsList");
+            list.innerHTML = "";
+            if (!used.length) {
+                list.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#999;padding:12px;">尚未新增材料，請按「新增材料」</td></tr>`;
+                return;
+            }
+            used.forEach((material, index) => {
+                list.innerHTML += `<tr>
+                    <td><select class="history-material-name" style="min-width:140px;">${historyMaterialOptions(material.name || "")}</select></td>
+                    <td><input class="history-material-amount" type="number" min="0" step="any" value="${Number(material.amount) || 0}" style="width:90px;"></td>
+                    <td><button class="btn-small" style="background:#d9534f;" onclick="removeHistoryMaterialRow(${index})">刪除</button></td>
+                </tr>`;
+            });
+        }
+
+        function viewHistoryMaterials(productId) {
+            let product = products.find(p => p.id === productId);
+            if (!product) { alert("找不到這項作品紀錄"); return; }
+            currentHistoryMaterialProductId = productId;
+            document.getElementById("historyMaterialsTitle").innerText = `🧵【${product.name}】使用材料（可修改）`;
+            let used = Array.isArray(product.usedMaterials) ? product.usedMaterials : [];
+            renderHistoryMaterialRows(used.map(m => ({...m})));
+            document.getElementById("historyMaterialsModal").style.display = "block";
+        }
+
+        function addHistoryMaterialRow() {
+            let rows = document.querySelectorAll("#historyMaterialsList tr");
+            if (rows.length === 1 && rows[0].querySelector("td[colspan]") ) rows[0].remove();
+            let list = document.getElementById("historyMaterialsList");
+            let index = list.querySelectorAll("tr").length;
+            list.insertAdjacentHTML("beforeend", `<tr>
+                <td><select class="history-material-name" style="min-width:140px;">${historyMaterialOptions()}</select></td>
+                <td><input class="history-material-amount" type="number" min="0" step="any" value="1" style="width:90px;"></td>
+                <td><button class="btn-small" style="background:#d9534f;" onclick="this.closest('tr').remove();">刪除</button></td>
+            </tr>`);
+        }
+
+        function removeHistoryMaterialRow(index) {
+            let rows = [...document.querySelectorAll("#historyMaterialsList tr")];
+            if (rows[index]) rows[index].remove();
+        }
+
+        function saveHistoryMaterials() {
+            let product = products.find(p => p.id === currentHistoryMaterialProductId);
+            if (!product) { alert("找不到這項作品紀錄"); return; }
+            let rows = [...document.querySelectorAll("#historyMaterialsList tr")];
+            let updated = [];
+            for (let row of rows) {
+                let nameEl = row.querySelector(".history-material-name");
+                let amountEl = row.querySelector(".history-material-amount");
+                if (!nameEl || !amountEl) continue;
+                let name = nameEl.value;
+                let amount = Number(amountEl.value);
+                if (!name) { alert("請選擇每一項材料，或刪除空白材料列。"); return; }
+                if (!Number.isFinite(amount) || amount < 0) { alert("材料使用數量請輸入 0 或正數。"); return; }
+                updated.push({name, amount});
+            }
+            product.usedMaterials = updated;
+            localStorage.setItem("products", JSON.stringify(products));
+            showHistory();
+            viewHistoryMaterials(currentHistoryMaterialProductId);
+            alert("材料修改已儲存！商品成本與利潤已依目前材料單價重新計算。");
+        }
+
+        function closeHistoryMaterialsModal() {
+            document.getElementById("historyMaterialsModal").style.display = "none";
+            currentHistoryMaterialProductId = null;
+        }
+
+        // 歷史作品拖曳事件 (改用唯一的 id 來做對調，更安全)
+        function handleHistoryDragStart(e, id) {
+            dragSrcId = id;
+            e.dataTransfer.effectAllowed = "move";
+        }
+        function handleHistoryDragOver(e) {
+            e.preventDefault();
+            let row = e.target.closest("tr");
+            if (row) row.classList.add("drag-over");
+        }
+        function handleHistoryDragLeave(e) {
+            let row = e.target.closest("tr");
+            if (row) row.classList.remove("drag-over");
+        }
+        function handleHistoryDrop(e, targetId) {
+            e.preventDefault();
+            let row = e.target.closest("tr");
+            if (row) row.classList.remove("drag-over");
+
+            if (dragSrcId !== null && dragSrcId !== targetId) {
+                let srcIndex = products.findIndex(x => x.id === dragSrcId);
+                let targetIndex = products.findIndex(x => x.id === targetId);
+
+                if (srcIndex !== -1 && targetIndex !== -1) {
+                    let targetItem = products.splice(srcIndex, 1)[0];
+                    products.splice(targetIndex, 0, targetItem);
+                    
+                    localStorage.setItem("products", JSON.stringify(products));
+                    showHistory();
+                    loadStallProducts();
+                    loadConsignProducts();
+                }
+            }
+            dragSrcId = null;
+        }
+
+        function addProductStock(index) {
+            let amount = Number(prompt("請輸入增加的成品數量"));
+            if (!amount || amount <= 0) return;
+            products[index].stock = (products[index].stock || 0) + amount;
+            localStorage.setItem("products", JSON.stringify(products));
+            showHistory();
+            loadStallProducts();
+            loadConsignProducts();
+        }
+
+        function deleteProduct(index) {
+            if(confirm("確定要刪除這項歷史作品紀錄嗎？")) {
+                products.splice(index, 1);
+                localStorage.setItem("products", JSON.stringify(products));
+                showHistory();
+                loadStallProducts();
+                loadConsignProducts();
+            }
+        }
+
+        function openEditModal(index) {
+            let p = products[index];
+            document.getElementById("editProductIndex").value = index;
+            document.getElementById("editProductName").value = p.name;
+            document.getElementById("editProductSell").value = p.sell;
+            document.getElementById("editProductExtra").value = p.extraCost || 0;
+            
+            // 載入編輯彈窗的分類選單
+            let tagSelect = document.getElementById("editProductTag");
+            tagSelect.innerHTML = "";
+            historyTags.forEach(tag => {
+                tagSelect.innerHTML += `<option value="${tag}" ${p.tag === tag ? 'selected' : ''}>${tag}</option>`;
+            });
+
+            document.getElementById("editProductModal").style.display = "block";
+        }
+
+        function closeEditModal() {
+            document.getElementById("editProductModal").style.display = "none";
+        }
+
+        function saveProductEdit() {
+            let index = document.getElementById("editProductIndex").value;
+            let name = document.getElementById("editProductName").value.trim();
+            let sell = Number(document.getElementById("editProductSell").value) || 0;
+            let extra = Number(document.getElementById("editProductExtra").value) || 0;
+            let tag = document.getElementById("editProductTag").value;
+
+            if(name == "") { alert("請輸入作品名稱"); return; }
+            products[index].name = name;
+            products[index].sell = sell;
+            products[index].extraCost = extra;
+            products[index].tag = tag; // 儲存修改的分類
+
+            localStorage.setItem("products", JSON.stringify(products));
+            closeEditModal();
+            showHistory();
+            loadStallProducts();
+            loadConsignProducts();
+            updateReport();
+            alert("修改儲存成功！");
+        }
+
+        // ===================== 擺攤管理 =====================
+        function createStall() {
+            let name = document.getElementById("stallName").value;
+            let date = document.getElementById("stallDate").value;
+            let location = document.getElementById("stallLocation").value;
+
+            if (name == "") { alert("請輸入活動名稱"); return; }
+
+            let cost = Number(document.getElementById("stallBooth").value || 0) +
+                       Number(document.getElementById("stallTransport").value || 0) +
+                       Number(document.getElementById("stallParking").value || 0) +
+                       Number(document.getElementById("stallFood").value || 0) +
+                       Number(document.getElementById("stallOther").value || 0);
+
+            stalls.push({
+                id: Date.now(),
+                name: name,
+                date: date,
+                location: location,
+                cost: cost,
+                income: 0,
+                productCost: 0,
+                productList: []
+            });
+            localStorage.setItem("stalls", JSON.stringify(stalls));
+            showStalls();
+            loadStallSelect();
+            alert("擺攤建立完成");
+        }
+
+        function showStalls() {
+            let list = document.getElementById("stallList");
+            if (!list) return;
+            list.innerHTML = "";
+
+            stalls.forEach((s, index) => {
+                let detail = "";
+                s.productList.forEach(p => {
+                    detail += `${p.name} × ${p.amount} (收入:${p.income})<br>`;
+                });
+                let profit = s.income - s.cost - (s.productCost || 0);
+                list.innerHTML += `
+                    <tr>
+                        <td style="text-align:left;"><b>${s.name}</b><br><small>${s.date} | ${s.location}</small><br><span style="color:#666;">${detail}</span></td>
+                        <td>費用:${s.cost}<br>商品:${s.productCost || 0}</td>
+                        <td>${s.income}</td>
+                        <td style="color:${profit >= 0 ? 'green':'red'}">${profit.toFixed(2)}</td>
+                        <td><button onclick="deleteStall(${index})" class="btn-small btn-danger">刪除</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function deleteStall(index) {
+            if(confirm("確定刪除此場擺攤紀錄？")) {
+                stalls.splice(index, 1);
+                localStorage.setItem("stalls", JSON.stringify(stalls));
+                showStalls();
+                loadStallSelect();
+                updateReport();
+            }
+        }
+
+        // 下拉選單讀取
+        function loadStallSelect() {
+            let select = document.getElementById("selectStall");
+            if (!select) return;
+            select.innerHTML = "";
+            stalls.forEach((s, index) => {
+                select.innerHTML += `<option value="${index}">${s.name}</option>`;
+            });
+        }
+
+        function loadStallProducts() {
+            let select = document.getElementById("stallProduct");
+            if (!select) return;
+            select.innerHTML = "";
+            if (products.length == 0) {
+                select.innerHTML = `<option>目前沒有作品</option>`;
+                return;
+            }
+            products.forEach((p, index) => {
+                select.innerHTML += `<option value="${index}">${p.name} (售價:${p.sell} | 庫存:${p.stock || 0})</option>`;
+            });
+        }
+
+        function addStallSale() {
+            let productIndex = document.getElementById("stallProduct").value;
+            let amount = Number(document.getElementById("stallSellAmount").value);
+            let stallIndex = document.getElementById("selectStall").value;
+
+            let p = products[productIndex];
+            let stall = stalls[stallIndex];
+
+            if (!p || !stall || amount <= 0) { alert("請選擇正確的活動、商品與數量"); return; }
+            if (p.stock < amount) { alert("商品庫存不足"); return; }
+
+            p.stock -= amount;
+            let liveCalc = getLiveProductCalculations(p);
+
+            stall.productList.push({
+                name: p.name,
+                amount: amount,
+                income: p.sell * amount,
+                cost: liveCalc.totalCost * amount
+            });
+
+            localStorage.setItem("products", JSON.stringify(products));
+            
+            let totalInc = 0;
+            let totalCst = 0;
+            stall.productList.forEach(item => {
+                totalInc += item.income;
+                totalCst += item.cost;
+            });
+            stall.income = totalInc;
+            stall.productCost = totalCst;
+
+            localStorage.setItem("stalls", JSON.stringify(stalls));
+            showStalls();
+            loadStallProducts();
+            loadConsignProducts();
+            updateReport();
+            document.getElementById("stallSellAmount").value = "";
+        }
+
+        // ===================== 寄賣管理顯示與拖曳排序 =====================
+        function createConsignment() {
+            let shop = document.getElementById("shopName").value.trim();
+            let commission = Number(document.getElementById("shopCommission").value) || 0;
+            let rent = document.getElementById("shopRent").value || 0;
+
+            if (shop == "") { alert("請輸入店家名稱"); return; }
+
+            consignments.push({
+                id: Date.now(),
+                shop: shop,
+                commission: commission,
+                rent: Number(rent),
+                products: [],
+                income: 0,
+                cost: 0,
+                totalRevenue: 0
+            });
+
+            localStorage.setItem("consignments", JSON.stringify(consignments));
+            showConsignments();
+            loadConsignShops();
+            document.getElementById("shopName").value = "";
+            document.getElementById("shopCommission").value = "";
+            document.getElementById("shopRent").value = "";
+            alert("寄賣店家建立完成");
+        }
+
+        function loadConsignShops() {
+            let select = document.getElementById("selectConsignShop");
+            if (!select) return;
+            select.innerHTML = "";
+            consignments.forEach((c, index) => {
+                select.innerHTML += `<option value="${index}">${c.shop}</option>`;
+            });
+        }
+
+        function loadConsignProducts() {
+            let select = document.getElementById("consignProduct");
+            if (!select) return;
+            select.innerHTML = "";
+            products.forEach((p, index) => {
+                select.innerHTML += `<option value="${index}">${p.name} (售價:${p.sell})</option>`;
+            });
+        }
+
+        function addConsignProduct() {
+            let index = Number(document.getElementById("consignProduct").value);
+            let shopIndex = Number(document.getElementById("selectConsignShop").value);
+            let amount = Number(document.getElementById("consignAmount").value);
+
+            let p = products[index];
+            let c = consignments[shopIndex];
+
+            if (!p || !c || amount <= 0) { alert("請輸入正確數量"); return; }
+            if ((p.stock || 0) < amount) { alert("商品庫存不足"); return; }
+
+            p.stock -= amount;
+
+            let exist = c.products.find(x => x.id == p.id);
+            if (exist) {
+                exist.amount += amount;
+                exist.remain += amount;
+            } else {
+                c.products.push({
+                    id: p.id,
+                    name: p.name,
+                    price: Number(p.sell),
+                    amount: amount,
+                    sold: 0,
+                    remain: amount
+                });
+            }
+
+            localStorage.setItem("products", JSON.stringify(products));
+            localStorage.setItem("consignments", JSON.stringify(consignments));
+
+            showConsignments();
+            loadConsignProducts();
+            updateReport();
+            document.getElementById("consignAmount").value = "";
+            alert("商品順利上架寄賣！");
+        }
+
+        function sellConsignProduct(shopIndex, itemIndex) {
+            let c = consignments[shopIndex];
+            let p = c.products[itemIndex];
+            let amount = Number(prompt(`【${p.name}】售出數量`, "1"));
+
+            if (!amount || amount <= 0) return;
+            if (amount > p.remain) { alert("寄賣處沒有這麼多剩餘庫存"); return; }
+
+            p.sold += amount;
+            p.remain -= amount;
+
+            recalculateShopFinances(c);
+
+            localStorage.setItem("consignments", JSON.stringify(consignments));
+            showConsignments();
+            updateReport();
+        }
+
+        function deleteConsignProductByIndex(shopIndex, itemIndex) {
+            let c = consignments[shopIndex];
+            let p = c.products[itemIndex];
+
+            if (confirm(`確定下架【${p.name}】嗎？未售出的數量會退回您的作品庫存。`)) {
+                let orig = products.find(x => x.id == p.id);
+                if (orig) orig.stock = (orig.stock || 0) + p.remain;
+
+                c.products.splice(itemIndex, 1);
+                recalculateShopFinances(c);
+
+                localStorage.setItem("products", JSON.stringify(products));
+                localStorage.setItem("consignments", JSON.stringify(consignments));
+                showConsignments();
+                loadConsignProducts();
+                updateReport();
+            }
+        }
+
+        // 店家上架品項拖曳事件
+        function handleConsignItemDragStart(e, shopIndex, itemIndex) {
+            dragSrcShopIndex = shopIndex;
+            dragSrcItemIndex = itemIndex;
+            e.dataTransfer.effectAllowed = "move";
+        }
+        function handleConsignItemDragOver(e) {
+            e.preventDefault();
+            let card = e.target.closest(".consign-item-card");
+            if (card) card.classList.add("drag-over");
+        }
+        function handleConsignItemDragLeave(e) {
+            let card = e.target.closest(".consign-item-card");
+            if (card) card.classList.remove("drag-over");
+        }
+        function handleConsignItemDrop(e, targetShopIndex, targetItemIndex) {
+            e.preventDefault();
+            let card = e.target.closest(".consign-item-card");
+            if (card) card.classList.remove("drag-over");
+
+            // 確保是在同一個店家內拖曳，不跨店移動
+            if (dragSrcShopIndex === targetShopIndex && dragSrcItemIndex !== null && dragSrcItemIndex !== targetItemIndex) {
+                let shop = consignments[targetShopIndex];
+                let targetItem = shop.products.splice(dragSrcItemIndex, 1)[0];
+                shop.products.splice(targetItemIndex, 0, targetItem);
+                
+                localStorage.setItem("consignments", JSON.stringify(consignments));
+                showConsignments();
+            }
+            dragSrcShopIndex = null;
+            dragSrcItemIndex = null;
+        }
+
+        function renameConsignShop(shopIndex) {
+            let oldName = consignments[shopIndex].shop;
+            let newName = prompt(`請輸入【${oldName}】的新店家名稱：`, oldName);
+            
+            if (newName === null) return; 
+            newName = newName.trim();
+            if (newName === "") {
+                alert("店家名稱不能為空！");
+                return;
+            }
+            
+            consignments[shopIndex].shop = newName;
+            localStorage.setItem("consignments", JSON.stringify(consignments));
+            
+            showConsignments();
+            loadConsignShops(); 
+            updateReport();     
+            alert("店家名稱已成功修改！");
+        }
+
+        function recalculateShopFinances(c) {
+            let totalSale = 0;
+            let totalCost = 0;
+            c.products.forEach(item => {
+                totalSale += item.price * item.sold;
+                let originalProd = products.find(orig => orig.id == item.id);
+                let unitCost = originalProd ? getLiveProductCalculations(originalProd).totalCost : 0;
+                totalCost += unitCost * item.sold;
+            });
+            c.totalRevenue = totalSale; 
+            c.income = totalSale * (1 - c.commission / 100); 
+            c.cost = totalCost; 
+        }
+
+        function deleteConsignment(shopIndex) {
+            if(confirm("確定結束此店家的寄賣合約？未售出的商品將全數退回大庫存。")) {
+                let c = consignments[shopIndex];
+                c.products.forEach(p => {
+                    let orig = products.find(x => x.id == p.id);
+                    if(orig) orig.stock = (orig.stock || 0) + p.remain;
+                });
+                consignments.splice(shopIndex, 1);
+                localStorage.setItem("products", JSON.stringify(products));
+                localStorage.setItem("consignments", JSON.stringify(consignments));
+                showConsignments();
+                loadConsignShops();
+                loadConsignProducts();
+                updateReport();
+            }
+        }
+
+        function showConsignments() {
+            let list = document.getElementById("consignmentList");
+            if (!list) return;
+            list.innerHTML = "";
+
+            let keyword = document.getElementById("consignSearchBox") ? document.getElementById("consignSearchBox").value.trim() : "";
+
+            consignments.forEach((shop, shopIndex) => {
+                let productListHtml = `<div class="consign-container">`;
+
+                if (!shop.products || shop.products.length === 0) {
+                    productListHtml += `<div style="color:#999; text-align:center; padding:10px;">目前此店家尚未上架任何商品</div>`;
+                } else {
+                    shop.products.forEach((p, itemIndex) => {
+                        if (keyword !== "" && !p.name.includes(keyword)) {
+                            return;
+                        }
+                        
+                        // 當沒有在使用快速篩選時，才開啟卡片拖曳功能
+                        let dragAttributes = "";
+                        let dragIndicator = `<span style="font-size:1.1em; color:#e889aa; margin-right:10px; cursor:grab;">☰</span>`;
+                        if (keyword === "") {
+                            dragAttributes = `draggable="true" ondragstart="handleConsignItemDragStart(event, ${shopIndex}, ${itemIndex})" ondragover="handleConsignItemDragOver(event)" ondragleave="handleConsignItemDragLeave(event)" ondrop="handleConsignItemDrop(event, ${shopIndex}, ${itemIndex})"`;
+                        } else {
+                            dragIndicator = "";
+                        }
+                        
+                        productListHtml += `
+                            <div class="consign-item-card" ${dragAttributes}>
+                                <div style="display:flex; align-items:center; flex-grow:1;">
+                                    ${dragIndicator}
+                                    <div class="consign-item-info">
+                                        <div class="consign-item-name">${p.name}</div>
+                                        <div class="consign-item-status">
+                                            <span>📦 配給: <b>${p.amount}</b></span>
+                                            <span style="color:#2b7a2b;">💰 已售: <b>${p.sold}</b></span>
+                                            <span style="color:#d9534f;">⏳ 剩餘: <b>${p.remain}</b></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="consign-action-btns">
+                                    <button onclick="sellConsignProduct(${shopIndex},${itemIndex})" class="btn-small btn-success">✓ 報售</button>
+                                    <button onclick="deleteConsignProductByIndex(${shopIndex},${itemIndex})" class="btn-small btn-danger">下架</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                productListHtml += `</div>`;
+
+                let liveProfit = (shop.income || 0) - (shop.cost || 0) - (shop.rent || 0);
+                let shopMarginRate = (shop.income && shop.income > 0) ? (liveProfit / shop.income * 100).toFixed(1) : "0.0";
+
+                list.innerHTML += `
+                    <tr>
+                        <td style="text-align:left; vertical-align: top; font-size:1.1em;">
+                            <b>🏬 ${shop.shop}</b><br><br>
+                            <button onclick="renameConsignShop(${shopIndex})" class="btn-small btn-warning" style="margin-bottom:5px; width:100px;">✏️ 店家改名</button><br>
+                            <button onclick="openConsignDetailModal(${shopIndex})" class="btn-small btn-info" style="margin-bottom:5px; width:100px;">📋 檢視明細</button><br>
+                            <button onclick="deleteConsignment(${shopIndex})" class="btn-small btn-secondary" style="width:100px;">🗑 解約銷店</button>
+                        </td>
+                        <td style="text-align:left; vertical-align: top; line-height: 1.6;">
+                            ✂️ 抽成比例: <b>${shop.commission}%</b><br>
+                            🏠 空間月租: <b>${shop.rent || 0} 元</b>
+                            <div class="shop-summary">
+                                📊 實收營業額: <b>${(shop.income || 0).toFixed(0)}</b> 元<br>
+                                📈 目前淨利潤: <span style="font-weight:bold; color:${liveProfit >= 0 ? 'green':'red'}">${liveProfit.toFixed(0)} 元</span><br>
+                                🎯 綜合毛利率: <span style="font-weight:bold; color:${liveProfit >= 0 ? 'green':'red'}">${shopMarginRate}%</span>
+                            </div>
+                        </td>
+                        <td style="vertical-align: top;">
+                            ${productListHtml}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // ===================== 寄賣品項明細與單店匯出 =====================
+        function openConsignDetailModal(shopIndex) {
+            let shop = consignments[shopIndex];
+            document.getElementById("modalShopIndex").value = shopIndex;
+            document.getElementById("modalShopTitle").innerText = `📋 【${shop.shop}】已售出品項與對帳明細`;
+            
+            let list = document.getElementById("modalShopDetailList");
+            list.innerHTML = "";
+
+            let soldCount = 0;
+            if (shop.products && shop.products.length > 0) {
+                shop.products.forEach(p => {
+                    if (p.sold > 0) {
+                        soldCount++;
+                        let subtotal = p.price * p.sold;
+                        list.innerHTML += `
+                            <tr>
+                                <td><b>${p.name}</b></td>
+                                <td>$${p.price}</td>
+                                <td style="color:#2b7a2b; font-weight:bold;">${p.sold}</td>
+                                <td>$${subtotal}</td>
+                            </tr>
+                        `;
+                    }
+                });
+            }
+
+            if (soldCount === 0) {
+                list.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#999; padding:20px;">該店家目前尚無 any 售出紀錄</td></tr>`;
+            }
+
+            document.getElementById("consignDetailModal").style.display = "block";
+        }
+
+        function closeConsignDetailModal() {
+            document.getElementById("consignDetailModal").style.display = "none";
+        }
+
+        async function exportSingleShopExcel() {
+            let shopIndex = document.getElementById("modalShopIndex").value;
+            let shop = consignments[shopIndex];
+            
+            if (!shop) return;
+
+            let workbook = new ExcelJS.Workbook();
+            let sheet = workbook.addWorksheet("銷售對帳單");
+
+            sheet.addRow([`寄賣店家：${shop.shop}`]);
+            sheet.addRow([`匯出日期：${new Date().toLocaleDateString()}`]);
+            sheet.addRow([`店家抽成：${shop.commission}%`, `空間月租：${shop.rent || 0} 元`]);
+            sheet.addRow([]); 
+
+            sheet.addRow(["品項名稱", "商品原售價", "已售出數量", "總營業額(未抽成)"]);
+
+            let grandTotalSales = 0;
+            if (shop.products && shop.products.length > 0) {
+                shop.products.forEach(p => {
+                    if (p.sold > 0) {
+                        let subtotal = p.price * p.sold;
+                        grandTotalSales += subtotal;
+                        sheet.addRow([p.name, p.price, p.sold, subtotal]);
+                    }
+                });
+            }
+
+            sheet.addRow([]); 
+            
+            let shareToOwner = grandTotalSales * (1 - shop.commission / 100); 
+            let finalPayout = shareToOwner - (shop.rent || 0); 
+
+            sheet.addRow(["總計未抽成營業額", "", "", grandTotalSales]);
+            sheet.addRow([`扣除店家抽成(${shop.commission}%)後金額`, "", "", shareToOwner]);
+            sheet.addRow(["扣除空間月租費後（本期應收淨額）", "", "", finalPayout]);
+
+            sheet.columns.forEach(col => { col.width = 20; });
+
+            let buffer = await workbook.xlsx.writeBuffer();
+            let blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = `【${shop.shop}】寄賣銷售對帳明細.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ===================== 營運分析與報表更新 =====================
+        function updateReport() {
+            let income = 0;
+            let cost = 0;
+
+            let bestStall = "尚無";
+            let maxStall = -Infinity;
+            stalls.forEach(s => {
+                income += Number(s.income || 0);
+                cost += Number(s.productCost || 0) + Number(s.cost || 0);
+                let p = Number(s.income || 0) - Number(s.productCost || 0) - Number(s.cost || 0);
+                if (p > maxStall) { maxStall = p; bestStall = s.name; }
+            });
+
+            let bestShop = "尚無";
+            let maxShop = -Infinity;
+            consignments.forEach(c => {
+                income += Number(c.income || 0);
+                cost += Number(c.cost || 0) + Number(c.rent || 0);
+                let p = Number(c.income || 0) - Number(c.cost || 0) - Number(c.rent || 0);
+                if (p > maxShop) { maxShop = p; bestShop = c.shop; }
+            });
+
+            document.getElementById("totalIncome").innerHTML = income.toFixed(2);
+            document.getElementById("totalCost").innerHTML = cost.toFixed(2);
+            document.getElementById("totalProfit").innerHTML = (income - cost).toFixed(2);
+            document.getElementById("bestStall").innerHTML = bestStall + (maxStall !== -Infinity ? ` (${maxStall.toFixed(1)}元)` : "");
+            document.getElementById("bestShop").innerHTML = bestShop + (maxShop !== -Infinity ? ` (${maxShop.toFixed(1)}元)` : "");
+        }
+
+        function clearReportData() {
+            if (confirm("確定清除擺攤與寄賣紀錄？\n核心的材料庫與歷史作品不會被刪除。")) {
+                stalls = [];
+                consignments = [];
+                localStorage.setItem("stalls", JSON.stringify(stalls));
+                localStorage.setItem("consignments", JSON.stringify(consignments));
+                showStalls();
+                showConsignments();
+                loadStallSelect();
+                updateReport();
+                alert("資料清除完成");
+            }
+        }
+
+        // ===================== 匯出 Excel =====================
+        async function exportExcel() {
+            let workbook = new ExcelJS.Workbook();
+
+            let productSheet = workbook.addWorksheet("作品紀錄");
+            productSheet.addRow([, "分類", "作品名稱", "即時總成本", "售價", "利潤", "毛利率%", "目前庫存數量", "其他附加成本"]);
+            products.forEach(p => {
+                let live = getLiveProductCalculations(p);
+                productSheet.addRow([p.date, p.tag || "未分類", p.name, live.totalCost, p.sell, live.profit, live.rate, p.stock || 0, p.extraCost || 0]);
+            });
+
+            let materialSheet = workbook.addWorksheet("材料庫");
+            materialSheet.addRow(["名稱", "分類", "累計總投入金額", "累計採購數量", "單位成本", "當前剩餘庫存"]);
+            materials.forEach(m => {
+                materialSheet.addRow([m.name, m.category, m.totalPrice, m.totalAmount, m.cost, m.stock]);
+            });
+
+            let stallSheet = workbook.addWorksheet("擺攤紀錄");
+            stallSheet.addRow(["活動名稱", "日期", "地點", "展會雜費成本", "商品總成本", "總營業收入", "最終總淨利"]);
+            stalls.forEach(s => {
+                sheet.addRow([s.name, s.date, s.location, s.cost, s.productCost || 0, s.income, s.income - s.cost - (s.productCost || 0)]);
+            });
+
+            workbook.eachSheet(sheet => {
+                sheet.columns.forEach(col => { col.width = 16; });
+            });
+
+            let buffer = await workbook.xlsx.writeBuffer();
+            let blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = "串珠成本管理報表.xlsx";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ===================== 系統啟動初始化 =====================
+        showMaterials();
+        changeProductCategory();
+        updateHistoryTagsUI(); // 初始化歷史作品分類按鈕
+        showHistory();
+        showStalls();
+        loadStallSelect();
+        loadStallProducts();
+        showConsignments();
+        loadConsignShops();
+        loadConsignProducts();
+        updateReport();
+    </script>
+
+    <script>
+    // ===================== Supabase 雲端同步 =====================
+    // Publishable key 僅供前端使用；絕不可在此放入 service_role / secret key。
+    const CLOUD_SUPABASE_URL = "https://ltckhsjrplvagbixhthy.supabase.co";
+    const CLOUD_SUPABASE_KEY = "sb_publishable_7XTbOpoZ0O9xo37uT4w3BQ_wiyyGWal";
+    const cloudClient = window.supabase.createClient(CLOUD_SUPABASE_URL, CLOUD_SUPABASE_KEY);
+    const CLOUD_KEYS = ["materials", "products", "stalls", "consignments", "historyTags"];
+    let cloudUser = null;
+    let cloudReady = false;
+    let cloudLoading = false;
+    let cloudTimer = null;
+
+    const cloudStatusEl = document.getElementById("cloudStatus");
+    const cloudSyncStatusEl = document.getElementById("cloudSyncStatus");
+    function setCloudStatus(message, isError=false) {
+        cloudStatusEl.textContent = message;
+        cloudStatusEl.style.color = isError ? "#c0395a" : "#a34b70";
+    }
+    function setSyncStatus(message, isError=false) {
+        cloudSyncStatusEl.textContent = message;
+        cloudSyncStatusEl.style.color = isError ? "#c0395a" : "#777";
+    }
+    function cloudSnapshot() {
+        return {
+            materials: materials,
+            products: products,
+            stalls: stalls,
+            consignments: consignments,
+            history_tags: historyTags
+        };
+    }
+    function snapshotHasData(data) {
+        return !!(data && ((data.materials || []).length || (data.products || []).length ||
+            (data.stalls || []).length || (data.consignments || []).length));
+    }
+    function localSnapshotHasData() { return snapshotHasData(cloudSnapshot()); }
+
+    function refreshAllAppViews() {
+        showMaterials();
+        changeProductCategory();
+        updateHistoryTagsUI();
+        showHistory();
+        showStalls();
+        loadStallSelect();
+        loadStallProducts();
+        showConsignments();
+        loadConsignShops();
+        loadConsignProducts();
+        updateReport();
+    }
+
+    async function writeCloudSnapshot() {
+        if (!cloudUser || !cloudReady || cloudLoading) return;
+        setSyncStatus("同步中…");
+        const snap = cloudSnapshot();
+        const payload = {
+            user_id: cloudUser.id,
+            materials: snap.materials,
+            products: snap.products,
+            stalls: snap.stalls,
+            consignments: snap.consignments,
+            history_tags: snap.history_tags,
+            updated_at: new Date().toISOString()
+        };
+        const { error } = await cloudClient.from("user_data").upsert(payload, { onConflict: "user_id" });
+        if (error) {
+            console.error("Cloud sync error:", error);
+            setSyncStatus("同步失敗：" + error.message, true);
+            return;
+        }
+        setSyncStatus("已同步 ✓ " + new Date().toLocaleTimeString());
+    }
+    function scheduleCloudSync() {
+        if (!cloudReady || cloudLoading || !cloudUser) return;
+        clearTimeout(cloudTimer);
+        cloudTimer = setTimeout(writeCloudSnapshot, 900);
+        setSyncStatus("資料有變更，準備同步…");
+    }
+
+    // 監聽原本程式的 localStorage 儲存動作，保留既有各項功能。
+    const originalLocalStorageSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+        originalLocalStorageSetItem.call(this, key, value);
+        if (this === localStorage && CLOUD_KEYS.includes(key)) scheduleCloudSync();
+    };
+
+    function loadSnapshotIntoApp(row) {
+        cloudLoading = true;
+        materials = Array.isArray(row.materials) ? row.materials : [];
+        products = Array.isArray(row.products) ? row.products : [];
+        stalls = Array.isArray(row.stalls) ? row.stalls : [];
+        consignments = Array.isArray(row.consignments) ? row.consignments : [];
+        historyTags = Array.isArray(row.history_tags) && row.history_tags.length ? row.history_tags : ["未分類"];
+        localStorage.setItem("materials", JSON.stringify(materials));
+        localStorage.setItem("products", JSON.stringify(products));
+        localStorage.setItem("stalls", JSON.stringify(stalls));
+        localStorage.setItem("consignments", JSON.stringify(consignments));
+        localStorage.setItem("historyTags", JSON.stringify(historyTags));
+        refreshAllAppViews();
+        cloudLoading = false;
+    }
+
+    async function finishLogin(user) {
+        cloudUser = user;
+        document.body.classList.remove("cloud-locked");
+        document.getElementById("cloudAuthPanel").style.display = "none";
+        document.getElementById("cloudAccountBar").style.display = "block";
+        document.getElementById("cloudSignedInAs").textContent = "登入帳號：" + (user.email || "已登入");
+        setSyncStatus("正在讀取雲端資料…");
+
+        const { data: cloudRow, error } = await cloudClient.from("user_data")
+            .select("materials,products,stalls,consignments,history_tags,updated_at")
+            .eq("user_id", user.id).maybeSingle();
+        if (error) {
+            setSyncStatus("讀取雲端失敗：" + error.message, true);
+            return;
+        }
+
+        // 已取得使用者資料列後才開啟同步，確保首次上傳也能執行。
+        cloudReady = true;
+        const localHas = localSnapshotHasData();
+        const cloudHas = snapshotHasData(cloudRow);
+        if (cloudRow && cloudHas) {
+            if (localHas) {
+                const useCloud = confirm("這個帳號已有雲端資料，這台裝置也有舊資料。\n\n按「確定」：以雲端資料為主（這台裝置的資料會被取代）。\n按「取消」：以這台裝置的資料為主，覆蓋雲端資料。\n\n建議第一次先按取消前，先使用「備份資料」留存舊資料。 ");
+                if (useCloud) {
+                    loadSnapshotIntoApp(cloudRow);
+                    setSyncStatus("已載入雲端資料 ✓");
+                } else {
+                    await writeCloudSnapshot();
+                }
+            } else {
+                loadSnapshotIntoApp(cloudRow);
+                setSyncStatus("已載入雲端資料 ✓");
+            }
+        } else {
+            // 雲端尚無資料：把本機既有資料第一次上傳，不清空舊資料。
+            await writeCloudSnapshot();
+        }
+        cloudReady = true;
+        setSyncStatus("雲端同步已啟用 ✓");
+    }
+
+    async function loginWithPassword(isSignup) {
+        const email = document.getElementById("cloudEmail").value.trim();
+        const password = document.getElementById("cloudPassword").value;
+        if (!email || !password) { setCloudStatus("請輸入電子郵件和密碼。", true); return; }
+        if (password.length < 6) { setCloudStatus("密碼至少需要 6 個字元。", true); return; }
+        const btns = [document.getElementById("cloudLoginBtn"), document.getElementById("cloudSignupBtn")];
+        btns.forEach(b => b.disabled = true);
+        setCloudStatus(isSignup ? "正在建立帳號…" : "正在登入…");
+        try {
+            const result = isSignup
+                ? await cloudClient.auth.signUp({ email, password })
+                : await cloudClient.auth.signInWithPassword({ email, password });
+            if (result.error) throw result.error;
+            if (result.data.session && result.data.user) {
+                setCloudStatus("登入成功，正在準備資料…");
+                await finishLogin(result.data.user);
+            } else if (isSignup) {
+                setCloudStatus("帳號已建立！請先到電子郵件收取驗證信，完成驗證後回來登入。若沒有收到，請檢查垃圾郵件匣。請勿重複建立帳號。");
+            } else {
+                setCloudStatus("尚未取得登入狀態，請確認電子郵件驗證是否完成，再重新登入。", true);
+            }
+        } catch (err) {
+            setCloudStatus(err.message || "操作失敗，請稍後再試。", true);
+        } finally { btns.forEach(b => b.disabled = false); }
+    }
+
+    document.getElementById("cloudLoginBtn").addEventListener("click", () => loginWithPassword(false));
+    document.getElementById("cloudSignupBtn").addEventListener("click", () => loginWithPassword(true));
+    document.getElementById("cloudSyncBtn").addEventListener("click", writeCloudSnapshot);
+    document.getElementById("cloudLogoutBtn").addEventListener("click", async () => {
+        cloudReady = false; cloudUser = null;
+        await cloudClient.auth.signOut();
+        document.getElementById("cloudAccountBar").style.display = "none";
+        document.getElementById("cloudAuthPanel").style.display = "block";
+        document.body.classList.add("cloud-locked");
+        setCloudStatus("已登出。下次使用時請重新登入。");
+    });
+    document.getElementById("cloudExportBtn").addEventListener("click", () => {
+        const data = { ...cloudSnapshot(), exported_at: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "串珠成本管理備份_" + new Date().toISOString().slice(0,10) + ".json";
+        a.click(); URL.revokeObjectURL(url);
+    });
+    document.getElementById("cloudImportBtn").addEventListener("click", () => {
+        document.getElementById("cloudImportFile").click();
+    });
+    document.getElementById("cloudImportFile").addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+            const parsed = JSON.parse(await file.text());
+            const valid = ["materials", "products", "stalls", "consignments"]
+                .every(k => Array.isArray(parsed[k]));
+            if (!valid) throw new Error("備份檔格式不正確，請選擇串珠成本管理 JSON 備份檔。");
+            if (!confirm("確定匯入這份備份嗎？目前這個帳號的雲端資料會被備份內容取代。建議先按「備份資料」留存目前版本。")) return;
+            loadSnapshotIntoApp({
+                materials: parsed.materials,
+                products: parsed.products,
+                stalls: parsed.stalls,
+                consignments: parsed.consignments,
+                history_tags: Array.isArray(parsed.history_tags) ? parsed.history_tags :
+                    (Array.isArray(parsed.historyTags) ? parsed.historyTags : ["未分類"])
+            });
+            await writeCloudSnapshot();
+            setSyncStatus("備份已匯入並同步 ✓");
+        } catch (err) {
+            alert(err.message || "匯入失敗，請確認檔案格式。");
+        } finally { event.target.value = ""; }
+    });
+
+    // 若此瀏覽器已有登入 session，直接載入雲端資料。
+    (async function restoreCloudSession() {
+        try {
+            const { data: { session } } = await cloudClient.auth.getSession();
+            if (session && session.user) await finishLogin(session.user);
+        } catch (err) {
+            setCloudStatus("無法連線 Supabase：" + (err.message || "請檢查網路"), true);
+        }
+    })();
+    </script>
+
+</body>
+</html>
